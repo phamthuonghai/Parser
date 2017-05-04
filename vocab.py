@@ -144,6 +144,7 @@ class Vocab(Configurable):
             else:
               self.add(counts, line[self.conll_idx])
           else:
+            print(line)
             raise ValueError('The training file is misformatted at line %d' % (line_num+1))
 
     self._counts = counts

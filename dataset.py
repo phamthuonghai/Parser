@@ -57,7 +57,7 @@ class Dataset(Configurable):
         buff = [[]]
         while True:
           line = f.readline()
-          while line:
+          while line and line[0] != '#':
             line = line.strip().split()
             if line:
               buff[-1].append(line)
@@ -82,7 +82,7 @@ class Dataset(Configurable):
         buff = [[]]
         for line in f:
           line = line.strip().split()
-          if line:
+          if line and line[0] != '#':
             buff[-1].append(line)
           else:
             if buff[-1]:
@@ -100,8 +100,14 @@ class Dataset(Configurable):
     words, tags, rels = self.vocabs
     for i, sent in enumerate(buff):
       for j, token in enumerate(sent):
-        word, tag1, tag2, head, rel = token[words.conll_idx], token[tags.conll_idx[0]], token[tags.conll_idx[1]], token[6], token[rels.conll_idx]
-        buff[i][j] = (word,) + words[word] + tags[tag1] + tags[tag2] + (int(head),) + rels[rel]
+        try:
+          word, tag1, tag2, head, rel = token[words.conll_idx], token[tags.conll_idx[0]], token[tags.conll_idx[1]], token[6], token[rels.conll_idx]
+          if not head.isdigit():
+            head = '-1'
+          buff[i][j] = (word,) + words[word] + tags[tag1] + tags[tag2] + (int(head),) + rels[rel]
+        except Exception as e:
+          print(token)
+          raise(e)
       sent.insert(0, ('root', Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, 0, Vocab.ROOT))
     return buff
   

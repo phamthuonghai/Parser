@@ -35,6 +35,12 @@ from configurable import Configurable
 from vocab import Vocab
 from dataset import Dataset
 
+
+class CoNLLUId:
+    COL_COUNT = 10
+    ID, FORM, LEMMA, UPOSTAG, XPOSTAG, FEATS, HEAD, DEPREL, DEPS, MISC = range(COL_COUNT)
+    COL_NAMES = u"ID,FORM,LEMMA,UPOSTAG,XPOSTAG,FEATS,HEAD,DEPREL,DEPS,MISC".split(u",")
+
 #***************************************************************
 class Network(Configurable):
   """"""
@@ -59,9 +65,9 @@ class Network(Configurable):
     self._model = model(self._config, global_step=self.global_step)
     
     self._vocabs = []
-    vocab_files = [(self.word_file, 1, 'Words'),
-                   (self.tag_file, [3, 4], 'Tags'),
-                   (self.rel_file, 7, 'Rels')]
+    vocab_files = [(self.word_file, CoNLLUId.FORM, 'Words'),
+                   (self.tag_file, [CoNLLUId.UPOSTAG, CoNLLUId.XPOSTAG], 'Tags'),
+                   (self.rel_file, CoNLLUId.DEPREL, 'Rels')]
     for i, (vocab_file, index, name) in enumerate(vocab_files):
       vocab = Vocab(vocab_file, index, self._config,
                     name=name,
