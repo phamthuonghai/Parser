@@ -77,11 +77,19 @@ class Network(Configurable):
       self._vocabs.append(vocab)
     
     self._trainset = Dataset(self.train_file, self._vocabs, model, self._config, name='Trainset')
-    self._validset = Dataset(self.valid_file, self._vocabs, model, self._config, name='Validset')
-    self._testset = Dataset(self.test_file, self._vocabs, model, self._config, name='Testset')
-    
+    if os.path.isfile(self.valid_file):
+      self._validset = Dataset(self.valid_file, self._vocabs, model, self._config, name='Validset')
+    else:
+      self._validset = None
+      print('Dev file %s missing' % self.valid_file)
+    if os.path.isfile(self.test_file):
+      self._testset = Dataset(self.test_file, self._vocabs, model, self._config, name='Testset')
+    else:
+      self._testset = None
+      print('Test file %s missing' % self.test_file)
+
     self._ops = self._gen_ops()
-    self._save_vars = filter(lambda x: u'Pretrained' not in x.name, tf.all_variables())
+    self._save_vars = filter(lambda x: u'Pretrained' not in x.name, tf.global_variables())
     self.history = {
       'train_loss': [],
       'train_accuracy': [],
@@ -120,6 +128,7 @@ class Network(Configurable):
   #=============================================================
   # assumes the sess has already been initialized
   def train(self, sess):
+    print('Train')
     """"""
     
     save_path = os.path.join(self.save_dir, self.name.lower() + '-pretrained')
@@ -303,26 +312,34 @@ class Network(Configurable):
   #=============================================================
   def _gen_ops(self):
     """"""
-    
+
+    ops = {}
+
     optimizer = optimizers.RadamOptimizer(self._config, global_step=self.global_step)
     train_output = self._model(self._trainset)
     
     train_op = optimizer.minimize(train_output['loss'])
-    # These have to happen after optimizer.minimize is called
-    valid_output = self._model(self._validset, moving_params=optimizer)
-    test_output = self._model(self._testset, moving_params=optimizer)
-    
-    ops = {}
     ops['train_op'] = [train_op,
                        train_output['loss'],
                        train_output['n_correct'],
                        train_output['n_tokens']]
-    ops['valid_op'] = [valid_output['loss'],
-                       valid_output['n_correct'],
-                       valid_output['n_tokens'],
-                       valid_output['predictions']]
-    ops['test_op'] = [valid_output['probabilities'],
-                      test_output['probabilities']]
+
+    # These have to happen after optimizer.minimize is called
+    if self._validset:
+      valid_output = self._model(self._validset, moving_params=optimizer)
+      ops['valid_op'] = [valid_output['loss'],
+                         valid_output['n_correct'],
+                         valid_output['n_tokens'],
+                         valid_output['predictions']]
+    else:
+      print('No dev set. Skipping...')
+    if self._testset:
+      test_output = self._model(self._testset, moving_params=optimizer)
+      ops['test_op'] = [valid_output['probabilities'] if self._validset else None,
+                        test_output['probabilities']]
+    else:
+      print('No test set. Skipping...')
+
     ops['optimizer'] = optimizer
     
     return ops
@@ -367,12 +384,12 @@ if __name__ == '__main__':
   
   args, extra_args = argparser.parse_known_args()
   cargs = {k: v for (k, v) in vars(Configurable.argparser.parse_args(extra_args)).iteritems() if v is not None}
-  
+
   print('*** '+args.model+' ***')
   model = getattr(models, args.model)
   
-  if 'save_dir' in cargs and os.path.isdir(cargs['save_dir']) and not (args.test or args.matrix or args.load):
-    raw_input('Save directory already exists. Press <Enter> to overwrite or <Ctrl-C> to exit.')
+  # if 'save_dir' in cargs and os.path.isdir(cargs['save_dir']) and not (args.test or args.matrix or args.load):
+  #   raw_input('Save directory already exists. Press <Enter> to overwrite or <Ctrl-C> to exit.')
   if (args.test or args.load or args.matrix) and 'save_dir' in cargs:
     cargs['config_file'] = os.path.join(cargs['save_dir'], 'config.cfg')
   network = Network(model, **cargs)
@@ -381,7 +398,7 @@ if __name__ == '__main__':
   config_proto = tf.ConfigProto()
   config_proto.gpu_options.per_process_gpu_memory_fraction = network.per_process_gpu_memory_fraction
   with tf.Session(config=config_proto) as sess:
-    sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
     if not (args.test or args.matrix):
       if args.load:
         os.system('echo Training: > %s/HEAD' % network.save_dir)

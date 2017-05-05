@@ -162,7 +162,7 @@ class Vocab(Configurable):
       cur_idx = Vocab.START_IDX
       for line_num, line in enumerate(f):
         line = line.strip().split()
-        if line:
+        if line and line[0] in self._str2idx:
           try:
             self._str2embed[line[0]] = cur_idx
             self._embed2str[cur_idx] = line[0]
