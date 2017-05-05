@@ -51,7 +51,7 @@ class BaseOptimizer(Configurable):
       raise ValueError('Loss is not float32')
     
     # Compute gradients
-    var_refs = [x_tm1.ref() for x_tm1 in var_list]
+    var_refs = [x_tm1.read_value() for x_tm1 in var_list]
     grads = tf.gradients(loss, var_refs,
                                 colocate_gradients_with_ops=True,
                                 gate_gradients=True,
